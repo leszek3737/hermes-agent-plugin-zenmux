@@ -1,0 +1,7 @@
+name: zenmux
+version: 1.0.0
+description: "ZenMux image generation backend (Vertex-style :predict). Text-to-image across OpenAI / Imagen / Flux via one key."
+author: Leszek
+kind: backend
+requires_env:
+  - ZENMUX_API_KEY

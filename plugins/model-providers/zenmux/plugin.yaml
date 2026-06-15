@@ -1,0 +1,5 @@
+name: zenmux-provider
+kind: model-provider
+version: 1.0.0
+description: ZenMux multi-provider model router (OpenAI-compatible)
+author: Leszek
