@@ -355,6 +355,18 @@ class ZenMuxImageGenProvider(ImageGenProvider):
                 prompt=prompt,
                 aspect_ratio=aspect,
             )
+        except requests.RequestException as exc:
+            # Catch-all for the remaining requests errors (SSLError,
+            # TooManyRedirects, ChunkedEncodingError, ...) so a transport
+            # failure surfaces as a clean error instead of crashing the tool.
+            return error_response(
+                error=f"ZenMux request failed: {exc}",
+                error_type="connection_error",
+                provider="zenmux",
+                model=model_slug,
+                prompt=prompt,
+                aspect_ratio=aspect,
+            )
 
         try:
             result = response.json()

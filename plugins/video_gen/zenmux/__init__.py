@@ -233,12 +233,17 @@ def _image_ref_to_b64(value: str) -> Tuple[Optional[str], Optional[str]]:
             return None, None
 
     # Local file path.
-    path = Path(ref).expanduser()
-    if path.is_file():
-        mime = mimetypes.guess_type(path.name)[0] or "image/png"
-        if not mime.startswith("image/"):
-            mime = "image/png"
-        return base64.b64encode(path.read_bytes()).decode("ascii"), mime
+    try:
+        path = Path(ref).expanduser()
+        if path.is_file():
+            mime = mimetypes.guess_type(path.name)[0] or "image/png"
+            if not mime.startswith("image/"):
+                mime = "image/png"
+            return base64.b64encode(path.read_bytes()).decode("ascii"), mime
+    except OSError as exc:
+        # File exists but is unreadable (permissions, I/O error, ...).
+        logger.warning("Could not read local image file %s: %s", ref, exc)
+        return None, None
 
     return None, None
 
@@ -518,6 +523,22 @@ class ZenMuxVideoGenProvider(VideoGenProvider):
                 )
                 poll.raise_for_status()
                 body = poll.json() or {}
+            except requests.HTTPError as exc:
+                # 4xx is non-transient (bad operation, expired auth, ...) —
+                # abort instead of retrying until the deadline. 5xx falls
+                # through to the transient path and keeps polling.
+                status = exc.response.status_code if exc.response is not None else 0
+                if 400 <= status < 500:
+                    return error_response(
+                        error=f"ZenMux video poll failed ({status}): {_extract_http_error(exc.response, exc)}",
+                        error_type="api_error",
+                        provider="zenmux",
+                        model=model_slug,
+                        prompt=prompt,
+                        aspect_ratio=normalized_aspect,
+                    )
+                logger.debug("ZenMux poll transient HTTP error (%d): %s", status, exc)
+                body = {}
             except requests.RequestException as exc:
                 logger.debug("ZenMux poll transient error: %s", exc)
                 body = {}
